@@ -139,9 +139,53 @@ export const useGameStore = create<GameState>()(
         solved: state.solved,
         checkOptions: state.checkOptions,
       }),
+      // 問題データを差し替えたときに、合わない進捗を引きずらないようにする
+      merge: (persisted, current) => {
+        const saved = reconcileProgress(
+          persisted as Parameters<typeof reconcileProgress>[0],
+          set0.puzzles.length,
+        );
+        if (!saved) {
+          return { ...current, ...initialState, keywords: set0.puzzles.map(() => null) };
+        }
+        return { ...current, ...saved };
+      },
     },
   ),
 );
+
+/**
+ * localStorage から読み出した進捗が、いまの問題データと食いちがっていないか点検する。
+ *
+ * なぜ必要か：
+ * 問題を追加・削除・差し替えたあと、前に遊んだ人のブラウザには古い進捗が残っている。
+ * たとえば3問を2問に減らすと「3問目の途中」で保存された人は
+ * puzzles[2] が存在せず、問題カードごと表示されなくなる。
+ * 合わない進捗は黙って最初からにするのが、いちばん安全で分かりやすい。
+ *
+ * 問題文やヒントだけを直したときは問題数もIDも変わらないので、進捗は保たれる。
+ */
+export function reconcileProgress<T extends {
+  currentIndex: number;
+  keywords: (string | null)[];
+  phase: GamePhase;
+}>(saved: T | undefined, puzzleCount: number): T | null {
+  if (!saved) return null;
+
+  // 保存時より問題数が変わっている
+  if (!Array.isArray(saved.keywords) || saved.keywords.length !== puzzleCount) return null;
+
+  // 存在しない問題を指している
+  if (
+    typeof saved.currentIndex !== "number" ||
+    saved.currentIndex < 0 ||
+    saved.currentIndex >= puzzleCount
+  ) {
+    return null;
+  }
+
+  return saved;
+}
 
 /**
  * 進捗バーの表示状態を計算する。

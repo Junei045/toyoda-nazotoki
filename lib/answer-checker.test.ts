@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { checkAnswer, normalizeAnswer, DEFAULT_CHECK_OPTIONS } from "./answer-checker";
 import { toyodaPuzzleSet } from "@/data/puzzles";
-import { getProgress } from "@/stores/game-store";
+import { getProgress, reconcileProgress } from "@/stores/game-store";
 
 describe("normalizeAnswer", () => {
   it("前後の空白を落とす", () => {
@@ -157,7 +157,8 @@ describe("読み上げ・ネタバレ防止", () => {
     expect(ending.explanation.length).toBeGreaterThan(0);
   });
 
-  it("3つのキーワードすべてが答えの解説に出てくる", () => {
+  // キーワードを持つ問題を足したら、結果画面の解説にもその言葉を足す必要がある
+  it("すべてのキーワードが答えの解説に出てくる", () => {
     for (const puzzle of toyodaPuzzleSet.puzzles) {
       expect(toyodaPuzzleSet.ending.explanation).toContain(puzzle.keyword!);
     }
@@ -165,51 +166,83 @@ describe("読み上げ・ネタバレ防止", () => {
 });
 
 describe("進捗バーの表示", () => {
-  const total = toyodaPuzzleSet.puzzles.length; // 3
+  // 問題数に依存しないよう、データから求める（問題を追加してもテストは壊れない）
+  const total = toyodaPuzzleSet.puzzles.length;
+  const solvedAll = toyodaPuzzleSet.puzzles.map((p) => p.keyword!);
+  const noneSolved = toyodaPuzzleSet.puzzles.map(() => null);
 
-  /** 進捗バーの各段の色を出す（done=緑 / current=青 / locked=灰） */
+  /** 進捗バーの各段の色（done=緑 / current=青 / locked=灰） */
   const bar = (solvedCount: number, currentStep: number) =>
     Array.from({ length: total + 1 }, (_, i) =>
       i < solvedCount ? "done" : i === currentStep ? "current" : "locked",
     );
 
-  it("第1問に取りかかっているとき、1問目が青で残りは灰", () => {
+  const expected = (doneCount: number, currentAt?: number) =>
+    Array.from({ length: total + 1 }, (_, i) =>
+      i < doneCount ? "done" : i === currentAt ? "current" : "locked",
+    );
+
+  it("第1問に取りかかっているとき、1問目だけが青", () => {
     const p = getProgress({
       phase: "playing", currentIndex: 0,
-      keywords: [null, null, null], solved: false, totalPuzzles: total,
+      keywords: noneSolved, solved: false, totalPuzzles: total,
     });
-    expect(bar(p.solvedCount, p.currentStep)).toEqual([
-      "current", "locked", "locked", "locked",
-    ]);
+    expect(bar(p.solvedCount, p.currentStep)).toEqual(expected(0, 0));
   });
 
-  it("3問解いて最終問題に進むと、最終問題が青になる", () => {
+  it("通常問題をすべて解いて最終問題に進むと、最終問題が青になる", () => {
     const p = getProgress({
-      phase: "final", currentIndex: 2,
-      keywords: ["さかえく", "あき", "はな"], solved: false, totalPuzzles: total,
+      phase: "final", currentIndex: total - 1,
+      keywords: solvedAll, solved: false, totalPuzzles: total,
     });
-    expect(bar(p.solvedCount, p.currentStep)).toEqual([
-      "done", "done", "done", "current",
-    ]);
+    expect(bar(p.solvedCount, p.currentStep)).toEqual(expected(total, total));
   });
 
   it("最終問題に正解した時点で、最終問題も緑になる", () => {
     const p = getProgress({
-      phase: "final", currentIndex: 2,
-      keywords: ["さかえく", "あき", "はな"], solved: true, totalPuzzles: total,
+      phase: "final", currentIndex: total - 1,
+      keywords: solvedAll, solved: true, totalPuzzles: total,
     });
-    expect(bar(p.solvedCount, p.currentStep)).toEqual([
-      "done", "done", "done", "done",
-    ]);
+    expect(bar(p.solvedCount, p.currentStep)).toEqual(expected(total + 1));
   });
 
-  it("結果画面では4段すべてが緑になり、青（現在地）は出ない", () => {
+  it("結果画面ではすべて緑になり、青（現在地）は出ない", () => {
     const p = getProgress({
-      phase: "result", currentIndex: 2,
-      keywords: ["さかえく", "あき", "はな"], solved: true, totalPuzzles: total,
+      phase: "result", currentIndex: total - 1,
+      keywords: solvedAll, solved: true, totalPuzzles: total,
     });
-    expect(bar(p.solvedCount, p.currentStep)).toEqual([
-      "done", "done", "done", "done",
-    ]);
+    expect(bar(p.solvedCount, p.currentStep)).toEqual(expected(total + 1));
+  });
+});
+
+describe("問題を差し替えたときの進捗の引きつぎ", () => {
+  const count = toyodaPuzzleSet.puzzles.length;
+  const saved = {
+    phase: "playing" as const,
+    currentIndex: count - 1,
+    keywords: toyodaPuzzleSet.puzzles.map((p, i) =>
+      i < count - 1 ? p.keyword! : null,
+    ) as (string | null)[],
+  };
+
+  it("問題数が同じなら進捗をそのまま引きつぐ（文言だけ直した場合）", () => {
+    expect(reconcileProgress(saved, count)).toEqual(saved);
+  });
+
+  it("問題を減らしたら進捗を捨てる（存在しない問題を指してしまうため）", () => {
+    expect(reconcileProgress(saved, count - 1)).toBeNull();
+  });
+
+  it("問題を増やしたら進捗を捨てる（キーワード枠の数が合わないため）", () => {
+    expect(reconcileProgress(saved, count + 1)).toBeNull();
+  });
+
+  it("保存が無い初回は null（＝最初から）", () => {
+    expect(reconcileProgress(undefined, count)).toBeNull();
+  });
+
+  it("壊れた保存データでも落ちない", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(reconcileProgress({ currentIndex: 99, keywords: null } as any, count)).toBeNull();
   });
 });
