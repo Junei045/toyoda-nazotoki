@@ -125,6 +125,7 @@ export function NazotokiGame() {
               imageSrc={set.character.imageSrc}
               message={set.character.greeting}
               mood="happy"
+              canSpeak={speechReady}
             />
 
             <Button size="full" onClick={startGame}>
@@ -142,6 +143,8 @@ export function NazotokiGame() {
             imageSrc={set.character.imageSrc}
             mood={solved ? "happy" : "thinking"}
             message={solved ? puzzle.success : puzzle.intro}
+            speech={solved ? (puzzle.successSpeech ?? puzzle.success) : puzzle.intro}
+            canSpeak={speechReady}
           />
 
           <Card>
@@ -159,17 +162,11 @@ export function NazotokiGame() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    // 正解後に問題文をもう一度読んでも意味がないので、正解メッセージに切り替える
-                    onClick={() =>
-                      speak(
-                        solved
-                          ? (puzzle.successSpeech ?? puzzle.success)
-                          : (puzzle.speech ?? puzzle.question),
-                      )
-                    }
-                    aria-label={solved ? "結果を読み上げる" : "問題を読み上げる"}
+                    // セリフは吹き出しのボタンで聞けるので、ここは問題文だけを読む
+                    onClick={() => speak(puzzle.speech ?? puzzle.question)}
+                    aria-label="問題を読み上げる"
                   >
-                    🔊 読み上げ
+                    🔊 問題をきく
                   </Button>
                 )}
               </header>
@@ -247,12 +244,20 @@ export function NazotokiGame() {
       )}
 
       {/* --- 結果 --- */}
-      {phase === "result" && <ResultView onRestart={handleRestart} />}
+      {phase === "result" && (
+        <ResultView onRestart={handleRestart} canSpeak={speechReady} />
+      )}
     </div>
   );
 }
 
-function ResultView({ onRestart }: { onRestart: () => void }) {
+function ResultView({
+  onRestart,
+  canSpeak,
+}: {
+  onRestart: () => void;
+  canSpeak: boolean;
+}) {
   const hintLevels = useGameStore((s) => s.hintLevels);
   const keywords = useGameStore((s) => s.keywords);
   const rating = calculateRating(hintLevels);
@@ -264,6 +269,8 @@ function ResultView({ onRestart }: { onRestart: () => void }) {
         imageSrc={set.character.imageSrc}
         message={set.ending.message}
         mood="happy"
+        speech={set.ending.speech}
+        canSpeak={canSpeak}
       />
 
       <Card>

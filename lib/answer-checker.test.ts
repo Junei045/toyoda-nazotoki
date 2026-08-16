@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { checkAnswer, normalizeAnswer, DEFAULT_CHECK_OPTIONS } from "./answer-checker";
+import { normalizeSpeechText } from "@/lib/speech";
 import { toyodaPuzzleSet } from "@/data/puzzles";
 import { getProgress, reconcileProgress } from "@/stores/game-store";
 
@@ -244,5 +245,38 @@ describe("問題を差し替えたときの進捗の引きつぎ", () => {
   it("壊れた保存データでも落ちない", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(reconcileProgress({ currentIndex: 99, keywords: null } as any, count)).toBeNull();
+  });
+});
+
+describe("読み上げテキストの整形", () => {
+  it("表示用の空白は取りのぞく（不自然な間になるため）", () => {
+    expect(normalizeSpeechText("それぞれの ことばから、 文字を とりだして")).toBe(
+      "それぞれのことばから、文字をとりだして",
+    );
+  });
+
+  it("改行は読点にして、区切りとして読ませる", () => {
+    expect(normalizeSpeechText("いちぎょうめ\nにぎょうめ")).toBe("いちぎょうめ、にぎょうめ");
+  });
+
+  it("読点が連続しないようにまとめる", () => {
+    expect(normalizeSpeechText("あ\n\n\nい")).toBe("あ、い");
+    expect(normalizeSpeechText("あ\n。")).toBe("あ。");
+  });
+
+  it("結果画面の読み上げ文にキーワードと答えが入っている", () => {
+    const spoken = normalizeSpeechText(toyodaPuzzleSet.ending.speech);
+    for (const puzzle of toyodaPuzzleSet.puzzles) {
+      expect(spoken).toContain(puzzle.keyword!);
+    }
+    expect(spoken).toContain("きく");
+  });
+
+  it("キャラクターのセリフにも読み上げ文がそろっている", () => {
+    expect(toyodaPuzzleSet.character.greeting.length).toBeGreaterThan(0);
+    for (const puzzle of [...toyodaPuzzleSet.puzzles, toyodaPuzzleSet.final]) {
+      expect(puzzle.intro.length).toBeGreaterThan(0);
+      expect((puzzle.successSpeech ?? puzzle.success).length).toBeGreaterThan(0);
+    }
   });
 });

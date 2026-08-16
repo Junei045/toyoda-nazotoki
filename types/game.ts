@@ -94,6 +94,8 @@ export interface PuzzleSet {
   ending: {
     message: string;
     explanation: string;
+    /** 結果画面の読み上げ文（メッセージと解説をまとめたもの） */
+    speech: string;
   };
 }
 
