@@ -144,6 +144,40 @@ export const useGameStore = create<GameState>()(
 );
 
 /**
+ * 進捗バーの表示状態を計算する。
+ *
+ * 「解けた数 = 獲得キーワードの数」で数えていたら、
+ * キーワードを持たない最終問題がいつまでも未クリア扱いになり、
+ * 正解しても青のまま・結果画面では灰色に戻る不具合になった。
+ * 最終問題のクリアは keywords ではなく phase から判定する。
+ *
+ * コンポーネントの外に出してあるのは、この計算をテストで押さえるため。
+ */
+export function getProgress(params: {
+  phase: GamePhase;
+  currentIndex: number;
+  keywords: (string | null)[];
+  solved: boolean;
+  totalPuzzles: number;
+}): { solvedCount: number; currentStep: number } {
+  const { phase, currentIndex, keywords, solved, totalPuzzles } = params;
+
+  const keywordCount = keywords.filter((k) => k !== null).length;
+  const finalSolved = phase === "result" || (phase === "final" && solved);
+  const solvedCount = keywordCount + (finalSolved ? 1 : 0);
+
+  // 結果画面では「今ここ」を指す必要がないので、範囲外を返して現在位置を出さない
+  const currentStep =
+    phase === "result"
+      ? totalPuzzles + 1
+      : phase === "final"
+        ? totalPuzzles
+        : currentIndex;
+
+  return { solvedCount, currentStep };
+}
+
+/**
  * 星評価（3段階・減点方式）。
  * ヒントは全部で最大12回（4問×3段階）使える。
  * 「使った人が惨めにならない」ことを優先し、最低でも星1は残す設計にした。

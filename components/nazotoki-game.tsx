@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { toyodaPuzzleSet } from "@/data/puzzles";
-import { useGameStore, calculateRating } from "@/stores/game-store";
+import { useGameStore, calculateRating, getProgress } from "@/stores/game-store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { isSpeechSupported, speak, stopSpeaking } from "@/lib/speech";
 import { assetPath } from "@/lib/asset-path";
@@ -59,9 +59,14 @@ export function NazotokiGame() {
 
   const puzzle = phase === "final" ? set.final : set.puzzles[currentIndex];
   const hintLevel = puzzle ? (hintLevels[puzzle.id] ?? 0) : 0;
-  const solvedCount = keywords.filter((k) => k !== null).length;
   const labels = [...set.puzzles.map((p) => p.label), set.final.label];
-  const progressIndex = phase === "final" ? set.puzzles.length : currentIndex;
+  const { solvedCount, currentStep } = getProgress({
+    phase,
+    currentIndex,
+    keywords,
+    solved,
+    totalPuzzles: set.puzzles.length,
+  });
   const isLastPuzzle = currentIndex >= set.puzzles.length - 1;
 
   const handleSubmit = () => {
@@ -92,7 +97,7 @@ export function NazotokiGame() {
     <div className="space-y-5">
       {phase !== "intro" && (
         <Card className="p-4">
-          <ProgressSteps labels={labels} currentIndex={progressIndex} solvedCount={solvedCount} />
+          <ProgressSteps labels={labels} currentIndex={currentStep} solvedCount={solvedCount} />
         </Card>
       )}
 

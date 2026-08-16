@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { checkAnswer, normalizeAnswer, DEFAULT_CHECK_OPTIONS } from "./answer-checker";
 import { toyodaPuzzleSet } from "@/data/puzzles";
+import { getProgress } from "@/stores/game-store";
 
 describe("normalizeAnswer", () => {
   it("前後の空白を落とす", () => {
@@ -160,5 +161,55 @@ describe("読み上げ・ネタバレ防止", () => {
     for (const puzzle of toyodaPuzzleSet.puzzles) {
       expect(toyodaPuzzleSet.ending.explanation).toContain(puzzle.keyword!);
     }
+  });
+});
+
+describe("進捗バーの表示", () => {
+  const total = toyodaPuzzleSet.puzzles.length; // 3
+
+  /** 進捗バーの各段の色を出す（done=緑 / current=青 / locked=灰） */
+  const bar = (solvedCount: number, currentStep: number) =>
+    Array.from({ length: total + 1 }, (_, i) =>
+      i < solvedCount ? "done" : i === currentStep ? "current" : "locked",
+    );
+
+  it("第1問に取りかかっているとき、1問目が青で残りは灰", () => {
+    const p = getProgress({
+      phase: "playing", currentIndex: 0,
+      keywords: [null, null, null], solved: false, totalPuzzles: total,
+    });
+    expect(bar(p.solvedCount, p.currentStep)).toEqual([
+      "current", "locked", "locked", "locked",
+    ]);
+  });
+
+  it("3問解いて最終問題に進むと、最終問題が青になる", () => {
+    const p = getProgress({
+      phase: "final", currentIndex: 2,
+      keywords: ["さかえく", "あき", "はな"], solved: false, totalPuzzles: total,
+    });
+    expect(bar(p.solvedCount, p.currentStep)).toEqual([
+      "done", "done", "done", "current",
+    ]);
+  });
+
+  it("最終問題に正解した時点で、最終問題も緑になる", () => {
+    const p = getProgress({
+      phase: "final", currentIndex: 2,
+      keywords: ["さかえく", "あき", "はな"], solved: true, totalPuzzles: total,
+    });
+    expect(bar(p.solvedCount, p.currentStep)).toEqual([
+      "done", "done", "done", "done",
+    ]);
+  });
+
+  it("結果画面では4段すべてが緑になり、青（現在地）は出ない", () => {
+    const p = getProgress({
+      phase: "result", currentIndex: 2,
+      keywords: ["さかえく", "あき", "はな"], solved: true, totalPuzzles: total,
+    });
+    expect(bar(p.solvedCount, p.currentStep)).toEqual([
+      "done", "done", "done", "done",
+    ]);
   });
 });
