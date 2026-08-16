@@ -129,3 +129,36 @@ describe("PDF 原稿との突きあわせ", () => {
     expect(checkAnswer(picked, q3.answers)).toBe(true);
   });
 });
+
+describe("読み上げ・ネタバレ防止", () => {
+  const all = [...toyodaPuzzleSet.puzzles, toyodaPuzzleSet.final];
+
+  it("読み上げ文に、読みまちがえやすい漢字を残していない", () => {
+    // 読みが割れる語は、読み上げでまちがった方を選ばれることがある。
+    // 「表」は「ひょう」ではなく「おもて」と読まれた実例がある。
+    const risky = ["表", "下", "角", "方"];
+    for (const puzzle of all) {
+      const spoken = [puzzle.speech, puzzle.successSpeech].filter(Boolean).join("");
+      for (const word of risky) {
+        expect(spoken.includes(word), `${puzzle.id} の読み上げに「${word}」が残っている`).toBe(false);
+      }
+    }
+  });
+
+  it("最終問題の正解メッセージが答えを先に明かしていない", () => {
+    const { final, ending } = toyodaPuzzleSet;
+    for (const answer of final.answers) {
+      expect(final.success.includes(answer)).toBe(false);
+      expect((final.successSpeech ?? "").includes(answer)).toBe(false);
+    }
+    // 答えは結果画面でだけ明かす
+    expect(ending.message).toContain("きく");
+    expect(ending.explanation.length).toBeGreaterThan(0);
+  });
+
+  it("3つのキーワードすべてが答えの解説に出てくる", () => {
+    for (const puzzle of toyodaPuzzleSet.puzzles) {
+      expect(toyodaPuzzleSet.ending.explanation).toContain(puzzle.keyword!);
+    }
+  });
+});

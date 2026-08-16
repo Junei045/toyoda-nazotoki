@@ -154,8 +154,15 @@ export function NazotokiGame() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => speak(puzzle.speech ?? puzzle.question)}
-                    aria-label="問題を読み上げる"
+                    // 正解後に問題文をもう一度読んでも意味がないので、正解メッセージに切り替える
+                    onClick={() =>
+                      speak(
+                        solved
+                          ? (puzzle.successSpeech ?? puzzle.success)
+                          : (puzzle.speech ?? puzzle.question),
+                      )
+                    }
+                    aria-label={solved ? "結果を読み上げる" : "問題を読み上げる"}
                   >
                     🔊 読み上げ
                   </Button>
@@ -214,7 +221,7 @@ export function NazotokiGame() {
                   <Alert tone="success" heading="せいかい！">
                     {phase === "playing" && puzzle.keyword
                       ? `キーワード「${puzzle.keyword}」を手に入れた！`
-                      : "すべての謎を解ききった！"}
+                      : "3つの謎も、さいごの謎も 解ききった！"}
                   </Alert>
                   <Button variant="success" size="full" onClick={handleNext}>
                     {phase === "playing"
@@ -250,7 +257,7 @@ function ResultView({ onRestart }: { onRestart: () => void }) {
       <DetectiveBubble
         name={set.character.name}
         imageSrc={set.character.imageSrc}
-        message={set.final.success}
+        message={set.ending.message}
         mood="happy"
       />
 
@@ -276,6 +283,13 @@ function ResultView({ onRestart }: { onRestart: () => void }) {
               <p className="text-3xl font-bold text-emerald-600">{set.final.answers[0]}</p>
               <Chrysanthemum size={40} />
             </div>
+          </div>
+
+          <div className="rounded-xl bg-slate-50 p-4">
+            <p className="mb-2 text-xs font-bold text-slate-500">なぜ「きく」？</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+              {set.ending.explanation}
+            </p>
           </div>
 
           <dl className="grid grid-cols-2 gap-3">

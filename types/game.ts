@@ -61,6 +61,11 @@ export interface Puzzle {
     message: string;
   };
   /**
+   * 正解したときの読み上げ文（任意）。
+   * 未指定なら success を読む。
+   */
+  successSpeech?: string;
+  /**
    * 読み上げ用テキスト。
    * 問題文には「↑」や「3/4」など読み上げに向かない記号が入るので、
    * 音声用の文面を別に持てるようにした（未指定なら question を読む）。
@@ -81,6 +86,15 @@ export interface PuzzleSet {
   };
   puzzles: Puzzle[];
   final: Puzzle;
+  /**
+   * 結果画面で明かす答えの解説。
+   * 正解した瞬間ではなく結果画面まで取っておくことで、
+   * 「答えを見る」という体験を1回にまとめている。
+   */
+  ending: {
+    message: string;
+    explanation: string;
+  };
 }
 
 /** 画面フェーズ */
