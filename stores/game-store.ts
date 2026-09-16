@@ -31,6 +31,8 @@ interface GameState {
   checkOptions: CheckOptions;
 
   startGame: () => void;
+  /** チラシの枠から、好きな問題に直接飛ぶ */
+  startAt: (index: number) => void;
   submitAnswer: (input: string) => boolean;
   goNext: () => void;
   useHint: (puzzleId: string) => void;
@@ -56,6 +58,23 @@ export const useGameStore = create<GameState>()(
 
       startGame: () =>
         set({ phase: "playing", solved: false, missCount: 0, nearMiss: false }),
+
+      /**
+       * チラシの枠から指定の問題へ飛ぶ。
+       * すでに解いてある問題は「正解ずみ」の状態で開く。
+       * もう一度答えさせると、解いた事実が無かったように見えてしまうため。
+       */
+      startAt: (index) => {
+        if (index < 0 || index >= set0.puzzles.length) return;
+        const { keywords } = get();
+        set({
+          phase: "playing",
+          currentIndex: index,
+          solved: keywords[index] != null,
+          missCount: 0,
+          nearMiss: false,
+        });
+      },
 
       submitAnswer: (input) => {
         const { phase, currentIndex, checkOptions } = get();
@@ -90,13 +109,14 @@ export const useGameStore = create<GameState>()(
 
       /** 正解後に次へ進む。「正解しないと進めない」ルールをここで担保している */
       goNext: () => {
-        const { phase, currentIndex, solved } = get();
+        const { phase, currentIndex, solved, keywords } = get();
         if (!solved) return;
 
         if (phase === "playing") {
-          if (currentIndex < set0.puzzles.length - 1) {
+          const next = nextUnsolvedIndex(keywords, currentIndex);
+          if (next !== null) {
             set({
-              currentIndex: currentIndex + 1,
+              currentIndex: next,
               solved: false,
               missCount: 0,
               nearMiss: false,
@@ -153,6 +173,30 @@ export const useGameStore = create<GameState>()(
     },
   ),
 );
+
+/**
+ * 次に解く問題を決める。まだキーワードを取っていない問題を、いまの位置の次から探す。
+ * 末尾まで行ったら先頭に戻って探し、ぜんぶ埋まっていたら null（＝最終問題へ）。
+ *
+ * なぜ「いまの番号 ＋ 1」ではないか：
+ * チラシの枠から好きな問題に飛べるようにしたため、順番どおりに解くとは限らない。
+ * 第3問から始めた人が「＋1」で進むと、第1問・第2問を解かないまま最終問題に着いてしまい、
+ * キーワードが 2つ足りず 最終問題を解けなくなる。
+ *
+ * コンポーネントの外に出してあるのは、この計算をテストで押さえるため。
+ */
+export function nextUnsolvedIndex(
+  keywords: (string | null)[],
+  currentIndex: number,
+): number | null {
+  for (let i = currentIndex + 1; i < keywords.length; i++) {
+    if (keywords[i] == null) return i;
+  }
+  for (let i = 0; i <= currentIndex && i < keywords.length; i++) {
+    if (keywords[i] == null) return i;
+  }
+  return null;
+}
 
 /**
  * localStorage から読み出した進捗が、いまの問題データと食いちがっていないか点検する。

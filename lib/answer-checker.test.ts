@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { checkAnswer, normalizeAnswer, DEFAULT_CHECK_OPTIONS } from "./answer-checker";
 import { normalizeSpeechText } from "@/lib/speech";
 import { toyodaPuzzleSet } from "@/data/puzzles";
-import { getProgress, reconcileProgress } from "@/stores/game-store";
+import { getProgress, reconcileProgress, nextUnsolvedIndex } from "@/stores/game-store";
 
 describe("normalizeAnswer", () => {
   it("前後の空白を落とす", () => {
@@ -278,5 +278,30 @@ describe("読み上げテキストの整形", () => {
       expect(puzzle.intro.length).toBeGreaterThan(0);
       expect((puzzle.successSpeech ?? puzzle.success).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("次に解く問題の決めかた（チラシから順番を飛ばせるため）", () => {
+  it("ふつうに解いていけば、次の番号に進む", () => {
+    expect(nextUnsolvedIndex(["さかえく", null, null], 0)).toBe(1);
+  });
+
+  it("第3問から始めても、解き残した第1問にもどる", () => {
+    // チラシで第3問を先に解いた状態
+    expect(nextUnsolvedIndex([null, null, "はな"], 2)).toBe(0);
+  });
+
+  it("まん中だけ解き残していたら、そこへ行く", () => {
+    expect(nextUnsolvedIndex(["さかえく", null, "はな"], 2)).toBe(1);
+  });
+
+  it("ぜんぶ解けていたら null（＝最終問題へ）", () => {
+    expect(nextUnsolvedIndex(["さかえく", "あき", "はな"], 1)).toBeNull();
+  });
+
+  it("問題数が変わっても動く（データに依存しない）", () => {
+    const empty = toyodaPuzzleSet.puzzles.map(() => null);
+    expect(nextUnsolvedIndex(empty, 0)).toBe(1);
+    expect(nextUnsolvedIndex(empty, empty.length - 1)).toBe(0);
   });
 });

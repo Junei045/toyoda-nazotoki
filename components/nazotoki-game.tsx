@@ -16,6 +16,7 @@ import { KeywordCollection } from "@/components/keyword-collection";
 import { ProgressSteps } from "@/components/progress-steps";
 import { PuzzleVisual, Chrysanthemum } from "@/components/puzzle-visual";
 import { HintPanel } from "@/components/hint-panel";
+import { PuzzleFlyer } from "@/components/puzzle-flyer";
 
 const set = toyodaPuzzleSet;
 
@@ -31,10 +32,13 @@ export function NazotokiGame() {
   const [answer, setAnswer] = useState("");
   const [emptyError, setEmptyError] = useState(false);
   const [speechReady, setSpeechReady] = useState(false);
+  // チラシは縦に長いので、遊んでいる間はたたんでおけるようにする。
+  // 最初（イントロ）は開いた状態で見せ、問題に入ったらたたむ。
+  const [flyerOpen, setFlyerOpen] = useState(true);
 
   const {
     phase, currentIndex, keywords, hintLevels, solved, missCount, nearMiss,
-    startGame, submitAnswer, goNext, useHint, resetGame,
+    startGame, startAt, submitAnswer, goNext, useHint, resetGame,
   } = useGameStore();
 
   // 声の一覧は非同期に読み込まれるので、そろってから読み上げボタンを出す
@@ -67,7 +71,24 @@ export function NazotokiGame() {
     solved,
     totalPuzzles: set.puzzles.length,
   });
-  const isLastPuzzle = currentIndex >= set.puzzles.length - 1;
+  // 「次は最終問題か」は番号ではなく、残りのキーワードで判断する。
+  // チラシから順番を飛ばして解けるため、末尾の問題＝最後とは限らない
+  const goesToFinal =
+    keywords.every((k, i) => k != null || i === currentIndex);
+
+  const handleFlyerSelect = (index: number) => {
+    setAnswer("");
+    setEmptyError(false);
+    stopSpeaking();
+    setFlyerOpen(false);
+    startAt(index);
+  };
+
+  const handleStart = () => {
+    stopSpeaking();
+    setFlyerOpen(false);
+    startGame();
+  };
 
   const handleSubmit = () => {
     if (answer.trim() === "") {
@@ -90,11 +111,39 @@ export function NazotokiGame() {
     setAnswer("");
     setEmptyError(false);
     stopSpeaking();
+    // もう一度あそぶときは、入口のチラシからやり直せるように開いて戻す
+    setFlyerOpen(true);
     resetGame();
   };
 
   return (
     <div className="space-y-5">
+      {/* 画面のいちばん上はチラシ。枠をタップするとその問題へ飛ぶ */}
+      <div className="space-y-2">
+        {flyerOpen && (
+          <PuzzleFlyer
+            onSelect={handleFlyerSelect}
+            keywords={keywords}
+            interactive={phase !== "result"}
+          />
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            {flyerOpen && phase !== "result"
+              ? "問題の枠をタップすると、その問題にすすめるよ。"
+              : "\u00a0"}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFlyerOpen((open) => !open)}
+            aria-expanded={flyerOpen}
+          >
+            {flyerOpen ? "▲ 問題用紙をたたむ" : "▼ 問題用紙をひらく"}
+          </Button>
+        </div>
+      </div>
+
       {phase !== "intro" && (
         <Card className="p-4">
           <ProgressSteps labels={labels} currentIndex={currentStep} solvedCount={solvedCount} />
@@ -128,7 +177,7 @@ export function NazotokiGame() {
               canSpeak={speechReady}
             />
 
-            <Button size="full" onClick={startGame}>
+            <Button size="full" onClick={handleStart}>
               謎ときをはじめる
             </Button>
           </div>
@@ -227,7 +276,7 @@ export function NazotokiGame() {
                   </Alert>
                   <Button variant="success" size="full" onClick={handleNext}>
                     {phase === "playing"
-                      ? isLastPuzzle
+                      ? goesToFinal
                         ? "最終問題へ"
                         : "次の問題へ"
                       : "結果を見る"}
