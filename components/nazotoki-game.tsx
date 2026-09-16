@@ -53,6 +53,23 @@ export function NazotokiGame() {
     };
   }, []);
 
+  // ブラウザを開きなおしたときは、かならず入口のチラシから始める。
+  // localStorage に進みぐあいが残っているため、そのままだと
+  // 前の人が解いた結果画面（＝答え）が最初に出てしまう。
+  // 同じタブの中での再読みこみでは進みぐあいを残す。
+  // あやまって更新したときに、解いたところまで消えるのを防ぐため
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const KEY = "nazotoki-session";
+      if (sessionStorage.getItem(KEY)) return;
+      sessionStorage.setItem(KEY, "1");
+      resetGame();
+    } catch {
+      // プライベートモードなどで sessionStorage が使えないときは何もしない
+    }
+  }, [hydrated, resetGame]);
+
   if (!hydrated) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -121,17 +138,11 @@ export function NazotokiGame() {
       {/* 画面のいちばん上はチラシ。枠をタップするとその問題へ飛ぶ */}
       <div className="space-y-2">
         {flyerOpen && (
-          <PuzzleFlyer
-            onSelect={handleFlyerSelect}
-            keywords={keywords}
-            interactive={phase !== "result"}
-          />
+          <PuzzleFlyer onSelect={handleFlyerSelect} keywords={keywords} />
         )}
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            {flyerOpen && phase !== "result"
-              ? "問題の枠をタップすると、その問題にすすめるよ。"
-              : "\u00a0"}
+            {flyerOpen ? "問題の枠をタップすると、その問題にすすめるよ。" : "\u00a0"}
           </p>
           <Button
             variant="ghost"
