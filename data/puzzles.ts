@@ -16,10 +16,10 @@ export const toyodaPuzzleSet: PuzzleSet = {
   title: "とよだ謎とき",
   subtitle: "3つのキーワードから 答えをみちびけ！",
   character: {
-    name: "トヨタくん",
+    name: "トヨダくん",
     imageSrc: "/detective.png",
     greeting:
-      "やあ！ ぼくは見習い探偵のトヨタくん。3つの謎を いっしょに解いて、キーワードを集めよう。ぜんぶ集まると、さいごの答えがわかるよ！",
+      "やあ！ ぼくは見習い探偵のトヨダくん。3つの謎を いっしょに解いて、キーワードを集めよう。ぜんぶ集まると、さいごの答えがわかるよ！",
   },
 
   puzzles: [
